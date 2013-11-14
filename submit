@@ -1,0 +1,4 @@
+#!/bin/sh
+rm pa.zip
+zip pa.zip nqueens run
+./qsub pa.zip

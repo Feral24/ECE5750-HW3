@@ -1,0 +1,222 @@
+dnl --------------------------------------------------------------------
+dnl  c.m4.ece5750:  m4 macro definitions for use with FreeBSD and gcc, egcs
+dnl  (or later).  These rely on the simplelock stuctures from the FreeBSD
+dnl  kernel.
+dnl
+dnl  Mark Heinrich
+dnl  1/23/00
+dnl --------------------------------------------------------------------
+
+dnl ----------------------------------------------------------------------
+dnl ENVIRONMENT SETUP
+dnl ----------------------------------------------------------------------
+
+define(ANY_ENV, `
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/time.h>
+#include <assert.h>
+
+typedef struct simplelock lock;
+')	
+
+define(MAIN_ENV, `
+ANY_ENV
+typedef struct struct_ANL_Globals {
+   int nextPid;	
+   LOCKDEC(anlLock);
+} ANLGlobalsStruct;
+
+ANLGlobalsStruct *ANLGlobals;
+
+typedef struct anl_barrier {
+    LOCKDEC(lock)
+    volatile int count;
+    volatile int spin;
+    volatile int inuse;
+} anl_barrier;
+
+int _anl_reserved_fd;
+int _anl_reserved_pid;
+int _anl_reserved_nprocs;
+')
+
+define(EXTERN_ENV, `
+ANY_ENV
+')
+
+dnl ----------------------------------------------------------------------
+dnl INITIALIZATION CALLS
+dnl ----------------------------------------------------------------------
+
+define(MAIN_INITENV, 	`
+{
+   if ((_anl_reserved_fd=open("/dev/zero", O_RDWR)) == -1) {
+      perror("ANL Init cannot open /dev/zero!");
+      exit(99);
+   }
+
+   if ((ANLGlobals = (ANLGlobalsStruct *)mmap(NULL, 
+	sizeof(ANLGlobalsStruct), PROT_READ|PROT_WRITE, MAP_SHARED, 
+	_anl_reserved_fd, 0)) == MAP_FAILED) {
+     perror ("ANL Global Initialization failed!");
+     exit(99);
+   }
+
+   LOCKINIT(ANLGlobals->anlLock);
+   _anl_reserved_nprocs = 1;
+}')
+
+dnl ----------------------------------------------------------------
+dnl NON-SYNCHRONIZATION CALLS
+dnl ----------------------------------------------------------------
+
+define(CLOCK, `GTOD_CLK($1)')
+
+define(GTOD_CLK, `
+{
+   struct timeval tv;
+   gettimeofday(&tv,NULL);
+   $1 = ((tv.tv_sec & 0x7ff) * 1000000) + tv.tv_usec;
+}')
+
+define(MAIN_END, `{
+  fflush(stdout); 
+  fflush(stderr); 
+  exit(0);
+}')
+
+define(CREATE, `
+{
+   _anl_reserved_nprocs++;
+   if ((_anl_reserved_pid = fork()) == -1) {
+     perror ("Create failed!");
+     exit (99);
+   }
+
+   if (!_anl_reserved_pid) {
+      // child
+      $1();
+      exit(0);
+   }
+}')
+
+define(GET_PID, `
+{
+  LOCK(ANLGlobals->anlLock);
+  $1 = ANLGlobals->nextPid++;
+  UNLOCK(ANLGlobals->anlLock);
+}')
+
+define(RESET_STATS, `')
+define(PRINT_COUNTERS, `')
+define(START_COUNTERS, `')
+define(STOP_COUNTERS, `')
+
+dnl -------------------------------------------------------------------------
+dnl End of Run Macros
+dnl -------------------------------------------------------------------------
+
+define(WAIT_FOR_END, `
+{
+  int _anl_reserved_temp; 
+  for (_anl_reserved_temp=1; _anl_reserved_temp <= $1;
+	_anl_reserved_temp++)
+    waitpid(-1, NULL, 0);
+}')
+
+dnl -------------------------------------------------------------------------
+dnl LOCK implementation 
+dnl -------------------------------------------------------------------------
+
+define(LOCKDEC, `
+	lock *$1;
+')
+
+define(LOCKINIT, `
+   if (($1 = (lock*)mmap(NULL, getpagesize(), PROT_READ|PROT_WRITE, 
+       	MAP_SHARED, _anl_reserved_fd, 0)) == MAP_FAILED) {
+      perror ("LockInit failed!");
+   }
+   s_lock_init ($1);
+')
+
+define(LOCK,	 `s_lock($1);')
+define(UNLOCK,	 `s_unlock($1);')
+
+
+dnl ----------------------------------------------------------------------
+dnl BARRIER implementations.
+dnl ----------------------------------------------------------------------
+
+define(BARDEC, `
+   anl_barrier *$1;
+')
+
+define(BARINIT, 
+`{
+   if (($1 = (anl_barrier *)mmap(NULL, getpagesize(), PROT_READ|PROT_WRITE, 
+       	MAP_SHARED, _anl_reserved_fd, 0)) == MAP_FAILED) {
+      perror ("Barrier Init failed!");
+   }
+
+    LOCKINIT($1->lock);
+    $1->count = 0;
+    $1->spin  = 1;
+    $1->inuse = 0;
+}')
+
+
+define(BARRIER, 
+`{
+   while ($1->inuse)
+     ;
+   LOCK($1->lock);
+   if ($1->count++ < ($2 - 1)) {
+     UNLOCK($1->lock);
+     while($1->spin)
+       ;
+     LOCK($1->lock);
+   } else { 
+     $1->inuse = 1;
+     $1->spin  = 0;
+   }
+   if (--$1->count == 0) {
+    $1->spin  = 1;
+    $1->inuse = 0;
+   }
+   UNLOCK($1->lock);
+}')
+
+define(SYNC_OP, `')
+
+dnl ----------------------------------------------------------------------
+dnl    MALLOC MACROS
+dnl ----------------------------------------------------------------------
+
+define(G_MALLOC, `
+   mmap(NULL, $1, PROT_READ|PROT_WRITE, MAP_SHARED, _anl_reserved_fd, 0);
+')
+
+define(G_FREE, `
+   munmap($1, $2);
+')
+
+
+define(P_MALLOC, `malloc($1);')
+define(G_MEMALIGN, `G_MALLOC($2)')
+
+dnl ----------------------------------------------------------------------
+dnl    PAUSE MACROS
+dnl ----------------------------------------------------------------------
+
+define(SETPAUSE, `$1=1;')
+define(CLEARPAUSE, `$1=0;')
+define(WAITPAUSE, `while($1==0);')
+
+

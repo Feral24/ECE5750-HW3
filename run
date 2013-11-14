@@ -1,0 +1,2 @@
+#!/bin/sh
+./nqueens 14 4  
