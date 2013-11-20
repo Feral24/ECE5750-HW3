@@ -23,13 +23,13 @@ void benchmark(void) {
 	q = 0;
     CLOCK(gm->start[pid])
 
-	for (i=0; i <= N-1; i++) {
+	for (i=0; i < N; i++) {
 	    ACQUIRE(gm->lock)
-		for (j=0; j <= k-1; j++) { 
+		for (j=0; j < k; j++) { 
 		  q++;
 		}
 		RELEASE(gm->lock)
-		for (j=0; j <= M-1; j++) {
+		for (j=0; j < M; j++) {
 		  p++;
 		}
 	}
@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
 	gm->M = atoi(argv[3]);
 
 	// Initialize processes per processor
-	for(i = 0; i < P-1; i++) {
+	for(i = 0; i < P; i++) {
 		CREATE(benchmark)
 	}
 
@@ -76,15 +76,15 @@ int main(int argc, char **argv) {
 	WAIT_FOR_END(P-1);
 
 	// Calculate runtime
-	t1 = -1;
-	for (i=0; i < P-1; i++) {
+	t1 = 4000000000;
+	for (i=0; i < P; i++) {
 	  if (gm->start[i] < t1) {
 		t1 = gm->start[i];
 	  }
 	}
 	
 	t2 = 0;
-	for (i=0; i < P-1; i++) {
+	for (i=0; i < P; i++) {
 	  if (gm->end[i] > t2) {
 		t2 = gm->end[i];
 	  }
