@@ -70,7 +70,34 @@ wait:
 gotit:
 	ret
 
+		
+/*
+ * void
+ * s_lock_ts(struct simplelock *lkp)
+ * {
+ * 	while (test_and_set(&lkp->lock_data))
+ * 		continue;
+ * }
+ *
+ * Note:
+ *	If the acquire fails we do a loop of reads waiting for the lock to
+ *	become free instead of continually beating on the lock with xchgl.
+ *	The theory here is that the CPU will stay within its cache until
+ *	a write by the other CPU updates it, instead of continually updating
+ *	the local cache (and thus causing external bus writes) with repeated
+ *	writes to the lock.
+ */
+		.globl s_lock_ts
+s_lock_ts:	
+	movl	4(%esp), %eax		/* get the address of the lock */
+	movl	$1, %ecx
+setlock_ts:
+	xchgl	%ecx, (%eax)
+	testl	%ecx, %ecx
+	jnz	setlock_ts			/* empty again, try once more */
+	ret
 
+		
 /*
  * int
  * s_lock_try(struct simplelock *lkp)

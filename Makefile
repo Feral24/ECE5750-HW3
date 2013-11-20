@@ -16,8 +16,8 @@ LIBS = -lm
 
 .SILENT:
 
-TARGET = nqueens
-OFILESFROMC = nqueens.o
+TARGET = my_lock
+OFILESFROMC = my_lock.o
 OFILESFROMASM = lock.o
 OFILES = $(OFILESFROMC) $(OFILESFROMASM)
 

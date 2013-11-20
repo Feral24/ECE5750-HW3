@@ -1,4 +1,4 @@
 #!/bin/sh
 rm pa.zip
-zip pa.zip nqueens run
+zip pa.zip my_lock run
 ./qsub pa.zip

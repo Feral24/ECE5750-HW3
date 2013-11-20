@@ -1,2 +1,2 @@
 #!/bin/sh
-./nqueens 14 4  
+./my_lock 8 0 0

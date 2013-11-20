@@ -223,10 +223,11 @@ define(QUEUELOCKINIT, `
    }
 
     LOCKINIT($1->lock);
-	$1->array = (int*)G_MALLOC(gm->numprocs*256);
+dnl	$1->array = (int*)G_MALLOC(gm->numprocs*256);
+	$1->array = (int*)G_MALLOC(gm->numprocs*sizeof(int));
 	int iter;
 	for (iter=0; iter < gm->numprocs; iter++) {
-		$1->array[iter*(256/sizeof(int))] = 0;
+		$1->array[iter] = 0;
 	}
     $1->array[0] = 1;
     $1->next_available = 0;
@@ -236,19 +237,21 @@ define(QUEUELOCKINIT, `
 define(QUEUELOCK, 
 `{
    int my_place;
-   int index;
+dnl   int index;
    LOCK($1->lock);
    my_place = $1->next_available++;
    if ($1->next_available == gm->numprocs)
 	  $1->next_available = 0;
    UNLOCK($1->lock);
-   index = my_place*(256/sizeof(int));
-   while($1->array[index] == 0)
+dnl   index = my_place*(256/sizeof(int));
+   while($1->array[my_place] == 0)
        ;
-   $1->array[index] = 0;
-   index = ((my_place+1) % gm->numprocs)*(256/sizeof(int));
-   $1->next_on = index;
+   $1->array[my_place] = 0;
+dnl   index = ((my_place+1) % gm->numprocs)*(256/sizeof(int));
+dnl   $1->next_on = index;
+   $1->next_on = ((my_place+1) % gm->numprocs);
 }')
+
 
 define(QUEUEUNLOCK,	 `$1->array[$1->next_on] = 1;')
 

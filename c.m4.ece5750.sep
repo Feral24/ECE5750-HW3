@@ -224,6 +224,7 @@ define(QUEUELOCKINIT, `
 
     LOCKINIT($1->lock);
 	$1->array = (int*)G_MALLOC(gm->numprocs*256);
+dnl	$1->array = (int*)G_MALLOC(gm->numprocs*sizeof(int));
 	int iter;
 	for (iter=0; iter < gm->numprocs; iter++) {
 		$1->array[iter*(256/sizeof(int))] = 0;
@@ -248,7 +249,9 @@ define(QUEUELOCK,
    $1->array[index] = 0;
    index = ((my_place+1) % gm->numprocs)*(256/sizeof(int));
    $1->next_on = index;
+dnl   $1->next_on = ((my_place+1) % gm->numprocs);
 }')
+
 
 define(QUEUEUNLOCK,	 `$1->array[$1->next_on] = 1;')
 
